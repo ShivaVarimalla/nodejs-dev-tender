@@ -2,15 +2,24 @@ const express = require("express");
 
 const app = express();
 
-app.use("/people",(req,res)=>{
-    res.send("Shiva, Meghana, Sitara ")
+
+
+app.get("/user", (req, res)=>{
+    res.send("User created successfully!")
+})
+app.post("/user", (req,res)=>{
+    res.send("User added successfully")
+})
+app.patch("/user", (rrq,res)=>{
+    res.send("User partially added successfully")
+})
+app.delete("/user", (req,res)=>{
+     res.send("User deleted successfully")
 })
 app.use("/test",(req,res)=>{
     res.send("Hello people")
 })
-app.use("/",(req,res)=>{
-    res.send("Hello from dashboard")
-})
+
 
 
 app.listen(7777, ()=>{
