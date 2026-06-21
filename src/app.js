@@ -3,19 +3,19 @@ const express = require("express");
 const app = express();
 
 
-
-app.get("/user", (req, res)=>{
+//localhost:7777/user/101/shiva
+app.get("/user/:userId/:name", (req,res)=>{
+    console.log({...req.params});
     res.send("User created successfully!")
 })
-app.post("/user", (req,res)=>{
-    res.send("User added successfully")
+
+//localhost:7777/user/:userId=101&name=shiva
+app.get("/user", (req, res)=>{
+    console.log({...req.query})
+    res.send("User created successfully!")
 })
-app.patch("/user", (rrq,res)=>{
-    res.send("User partially added successfully")
-})
-app.delete("/user", (req,res)=>{
-     res.send("User deleted successfully")
-})
+
+
 app.use("/test",(req,res)=>{
     res.send("Hello people")
 })
