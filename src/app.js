@@ -1,20 +1,19 @@
 const express = require("express");
 
 const app = express();
+const {adminAuth, userAuth} = require("./Middlewares/auth")
 
-//localhost:7777/user?userId=101&name=shiva
-app.get("/user", (req, res, next) => {
-//   res.send("1st User created successfully!");
-  next()
+app.use("/admin", adminAuth)
+
+app.get("/admin/getAllData",(req,res)=>{
+res.send("I am admin, let me move forward")
+})
+
+app.use("/user", userAuth)
+app.get("/user/qws", (req, res, ) => {
+  res.send("1st User created successfully!");
+  // next()
 },
-[(req, res, next) => {
-    // res.send("2nd User created successfully!");
-    next()
-  },
-  (req,res, next)=>{
-    res.send("3rd user created")
-    next()
-  }]
 );
 
 app.listen(7777, () => {
