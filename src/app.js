@@ -1,20 +1,23 @@
 const express = require("express");
 
 const app = express();
-const {adminAuth, userAuth} = require("./Middlewares/auth")
 
-app.use("/admin", adminAuth)
 
-app.get("/admin/getAllData",(req,res)=>{
-res.send("I am admin, let me move forward")
+app.get("/user", (req, res) => {
+ try {
+   throw new Error;
+ } catch (error) {
+  res.status(500).send("Internal server error")
+ }
+ 
+});
+
+app.use("/", (err,req,res, next)=>{
+ if(err){
+  res.status(500).send("Something went wrong")
+ }
 })
 
-app.use("/user", userAuth)
-app.get("/user/qws", (req, res, ) => {
-  res.send("1st User created successfully!");
-  // next()
-},
-);
 
 app.listen(7777, () => {
   console.log("Server has started");
