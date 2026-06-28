@@ -40,6 +40,20 @@ app.get("/feed", async (req, res) => {
   }
 });
 
+app.get("/user/:id", async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).send("user doesn'texist");
+    } else {
+      res.send(user);
+    }
+  } catch (error) {
+    res.status(500).send("Something went wrong!");
+  }
+});
+
 connectDB()
   .then(() => {
     console.log("DB connected successfully");
