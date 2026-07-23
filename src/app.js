@@ -6,11 +6,17 @@ const app = express();
 
 app.use(express.json());
 
-app.post("/signup", (req, res) => {
-  const user = new User(req.body);
-  user.save();
+app.post("/signup", async (req, res) => {
+  try {
+    const user = new User(req.body);
 
-  res.send("Usre data added succesfully");
+    await user.save();
+
+    res.send("User data added successfully");
+  } catch (err) {
+    console.log(err);
+    res.status(400).send(err.message);
+  }
 });
 
 app.get("/user", async (req, res) => {
