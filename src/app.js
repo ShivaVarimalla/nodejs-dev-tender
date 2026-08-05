@@ -8,11 +8,12 @@ app.use(express.json());
 
 app.post("/signup", async (req, res) => {
   try {
+    validateSignUpData(req);
     const user = new User(req.body);
 
     await user.save();
 
-    res.send("User data added successfully");
+    res.status(201).send("User data added successfully");
   } catch (err) {
     console.log(err);
     res.status(400).send(err.message);
@@ -83,6 +84,28 @@ app.delete("/user", async (req, res) => {
 //   }
 // });
 
+
+app.patch("/user/:id", async (req, res) => {
+  try {
+    validateEditProfileData(req);
+    const userId = req.params.id;
+    const body = req.body;
+
+    const user = await User.findByIdAndUpdate(userId, body, { new: true, runValidators: true });
+    if (!user) {
+      return res.status(400).send("User not found");
+    }
+
+    res.status(200).send("User updated successfully");
+
+  }
+  catch (error) {
+    res.status(400).json({
+      message: error.message,
+    });
+  }
+});
+
 app.patch("/user", async (req, res) => {
   const emailId = req.body.emailId;
   const data = req.body;
@@ -90,6 +113,7 @@ app.patch("/user", async (req, res) => {
   console.log("Request Body:", req.body);
 
   try {
+    validateEditProfileData(req);
     const user = await User.findOneAndUpdate(
       { emailId },
       data,
