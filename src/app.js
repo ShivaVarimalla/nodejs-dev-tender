@@ -1,145 +1,275 @@
+require("dotenv").config();
+
 const express = require("express");
+const mongoose = require("mongoose");
+const bycrypt = require("bcrypt");
+
 const connectDB = require("./config/database");
 const User = require("./models/user");
+const {
+  validateSignUpData,
+  validateEditProfileData,
+} = require("./utils/validation");
+
 
 const app = express();
 
 app.use(express.json());
 
+/**
+ * Create user
+ */
 app.post("/signup", async (req, res) => {
   try {
     validateSignUpData(req);
-    const user = new User(req.body);
+    const { password, ...userData } = req.body;
+
+    const passwordHash = await bycrypt.hash(password, 10);
+
+    const user = new User({ ...userData, password: passwordHash });
 
     await user.save();
 
-    res.status(201).send("User data added successfully");
-  } catch (err) {
-    console.log(err);
-    res.status(400).send(err.message);
-  }
-});
-
-app.get("/user", async (req, res) => {
-  const email = req.query.emailId;
-  try {
-    const user = await User.findOne({ emailId: email });
-    if (!user) {
-      res.status(404).send("user doesn'texist");
-    } else {
-      res.send(user);
-    }
+    res.status(201).json({
+      message: "User data added successfully",
+      data: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        emailId: user.emailId,
+      },
+    });
   } catch (error) {
-    res.status(500).send("Something went wrong!");
-  }
-});
+    console.error("Signup error:", error.message);
 
-app.get("/feed", async (req, res) => {
-  try {
-    const users = await User.find({});
-    if (users.length === 0) {
-      res.status(404).send("users doesn'texist");
-    } else {
-      res.send(users);
-    }
-  } catch (error) {
-    res.status(500).send("Something went wrong");
-  }
-});
-
-app.get("/user/:id", async (req, res) => {
-  const userId = req.params.id;
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(404).send("user doesn'texist");
-    } else {
-      res.send(user);
-    }
-  } catch (error) {
-    res.status(500).send("Something went wrong!");
-  }
-});
-app.delete("/user", async (req, res) => {
-  const userId = req.body.userId;
-
-  try {
-    const deleteUser = await User.findByIdAndDelete(userId);
-    res.send("User deleted successfully");
-  } catch (error) {
-    res.status(500).send("Something went wrong");
-  }
-});
-
-// app.patch("/user", async (req, res) => {
-//   const userId = req.body.userId;
-//   const data = req.body;
-
-//   try {
-//     const user = await User.findByIdAndUpdate(userId , data, {returnDocument: "after"});
-//     console.log("userrr", user)
-//     res.send("User updated successfully");
-//   } catch (error) {
-//     res.status(500).send("Something went wrong");
-//   }
-// });
-
-
-app.patch("/user/:id", async (req, res) => {
-  try {
-    validateEditProfileData(req);
-    const userId = req.params.id;
-    const body = req.body;
-
-    const user = await User.findByIdAndUpdate(userId, body, { new: true, runValidators: true });
-    if (!user) {
-      return res.status(400).send("User not found");
-    }
-
-    res.status(200).send("User updated successfully");
-
-  }
-  catch (error) {
     res.status(400).json({
       message: error.message,
     });
   }
 });
 
-app.patch("/user", async (req, res) => {
-  const emailId = req.body.emailId;
-  const data = req.body;
-
-  console.log("Request Body:", req.body);
-
+app.post("/login", async (req, res) =>{
   try {
-    validateEditProfileData(req);
-    const user = await User.findOneAndUpdate(
-      { emailId },
-      data,
-      { new: true }
-    );
+    const {emailId, password} = req.body;
 
-    console.log("Updated User:", user);
+    if(!emailId || !password) {
+      return  res.status(400).json({
+        message: "Email and password are required"
+      })
+    }
+    const user = await User.findOne({emailId});
 
-    if (!user) {
-      return res.status(404).send("User not found");
+    if(!user){
+      return res.status(400).json({
+        message: "Invalid email or password"
+      })
     }
 
-    res.send(user);
+    const isPasswordValid = await bycrypt.compare(password, user.password);
+
+    if(!isPasswordValid) {
+      return res.status(400).json({
+        message: "Invalid email or password"
+      })
+    }
+
+    res.status(200).json({
+      message: "Login successful",
+      data:{
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        emailId: user.emailId
+      }
+    })
   } catch (error) {
-    console.log(error);
-    res.status(500).send(error.message);
+    console.error("Login error:", error.message);
+
+    res.status(500).json({
+      message: "Something went wrong"
+    })
+  }
+})
+
+
+
+/**
+ * Get user by email query parameter
+ * Example: GET /user?emailId=test@example.com
+ */
+app.get("/user", async (req, res) => {
+  try {
+    const emailId = req.query.emailId;
+
+    if (!emailId) {
+      return res.status(400).json({
+        message: "Email ID is required",
+      });
+    }
+
+    const user = await User.findOne({ emailId });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      data: user,
+    });
+  } catch (error) {
+    console.error("Get user error:", error.message);
+
+    res.status(500).json({
+      message: "Something went wrong",
+    });
   }
 });
+
+/**
+ * Get all users
+ */
+app.get("/feed", async (req, res) => {
+  try {
+    const users = await User.find({});
+
+    res.status(200).json({
+      count: users.length,
+      data: users,
+    });
+  } catch (error) {
+    console.error("Feed error:", error.message);
+
+    res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
+/**
+ * Get user by MongoDB ID
+ * Example: GET /user/66e1c6934c3e6a579ff135a3
+ */
+app.get("/user/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      data: user,
+    });
+  } catch (error) {
+    console.error("Get user by ID error:", error.message);
+
+    res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
+/**
+ * Update user by MongoDB ID
+ * Example: PATCH /user/66e1c6934c3e6a579ff135a3
+ */
+app.patch("/user/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
+    validateEditProfileData(req);
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "User updated successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.error("Update user error:", error.message);
+
+    res.status(400).json({
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Delete user by MongoDB ID
+ * Example: DELETE /user/66e1c6934c3e6a579ff135a3
+ */
+app.delete("/user/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
+    const deletedUser = await User.findByIdAndDelete(userId);
+
+    if (!deletedUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete user error:", error.message);
+
+    res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+});
+
+const PORT = process.env.PORT || 7777;
 
 connectDB()
   .then(() => {
     console.log("DB connected successfully");
-    app.listen(7777, () => {
-      console.log("Server has started");
+
+    app.listen(PORT, () => {
+      console.log(`Server has started on port ${PORT}`);
     });
   })
   .catch((error) => {
-    console.log("DB connection err", error);
+    console.error("DB connection error:", error.message);
+    process.exit(1);
   });

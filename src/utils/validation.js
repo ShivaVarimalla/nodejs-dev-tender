@@ -1,59 +1,78 @@
+const validator = require("validator");
+
 const validateSignUpData = (req) => {
-    const ALLOWED_FIELDS = [
-        'firstName',
-        'lastName',
-        'emailId',
-        'password',
-        'age',
-        'gender',
-        'photoUrl',
-        'about',
-        'skills'
-    ];
+  const ALLOWED_FIELDS = [
+    "firstName",
+    "lastName",
+    "emailId",
+    "password",
+    "age",
+    "gender",
+    "photoUrl",
+    "about",
+    "skills",
+  ];
 
-    const isValidOperation = Object.keys(req.body).every((key) => ALLOWED_FIELDS.includes(key));
-    if (!isValidOperation) {
-        throw new Error("Invalid fields in request body");
-    }
-    const { firstName, emailId, password } = req.body;
+  const requestFields = Object.keys(req.body);
 
-    if (!firstName) {
-        throw new Error("firstName is required");
-    }
-    if (!emailId) {
-        throw new Error("emailId is required");
-    }
-    if (!password) {
-        throw new Error("password is required");
-    }
-}
+  const invalidFields = requestFields.filter(
+    (field) => !ALLOWED_FIELDS.includes(field)
+  );
+
+  if (invalidFields.length > 0) {
+    throw new Error(
+      `Invalid fields in request body: ${invalidFields.join(", ")}`
+    );
+  }
+
+  const { firstName, emailId, password } = req.body;
+
+  if (!firstName) {
+    throw new Error("firstName is required");
+  }
+
+  if (!emailId) {
+    throw new Error("emailId is required");
+  }
+
+  if (!password) {
+    throw new Error("password is required");
+  }
+
+  if(!validator.isStrongPassword(password)) {
+    throw new Error("Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.");
+  }
+};
 
 const validateEditProfileData = (req) => {
-    const ALLOWED_FIELDS = [
-        'firstName',
-        'lastName',
-        'age',
-        'gender',
-        'photoUrl',
-        'about',
-        'skills'
-    ];
+  const ALLOWED_UPDATES = [
+    "firstName",
+    "lastName",
+    "age",
+    "gender",
+    "photoUrl",
+    "about",
+    "skills",
+  ];
 
-    const updateFields = Object.keys(req.body).filter((key) => key !== 'emailId');
+  const updateFields = Object.keys(req.body);
 
-    if (updateFields.length === 0) {
-        throw new Error("Provide at least one field to update")
-    }
-    const isUpdateAllowed = updateFields.every((key) => ALLOWED_FIELDS.includes(key));
+  if (updateFields.length === 0) {
+    throw new Error("Provide at least one field to update");
+  }
 
-    if (!isUpdateAllowed) {
-        const invalidFields = updateFields.filter((key) => ALLOWED_FIELDS.includes(key));
+  const invalidFields = updateFields.filter(
+    (field) => !ALLOWED_UPDATES.includes(field)
+  );
 
-        throw new Error(`Invalid fields in request body: ${invalidFields.join(', ')}`);
-    }
+  if (invalidFields.length > 0) {
+    throw new Error(
+      `These fields cannot be updated: ${invalidFields.join(", ")}`
+    );
+  }
+};
 
-
-
-}
-
-modules.exports = { validateSignUpData, validateEditProfileData };
+module.exports = {
+  validateSignUpData,
+  validateEditProfileData,
+};
