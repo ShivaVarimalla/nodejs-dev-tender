@@ -86,7 +86,7 @@ app.post("/login", async (req, res) => {
 
     if (!user) {
       return res.status(400).json({
-        message: "Invalid email or password"
+        message: "Invalid credentials"
       })
     }
 
@@ -94,7 +94,7 @@ app.post("/login", async (req, res) => {
 
     if (!isPasswordValid) {
       return res.status(400).json({
-        message: "Invalid email or password"
+        message: "Invalid credentials"
       })
     }
 
