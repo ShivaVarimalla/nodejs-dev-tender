@@ -2,13 +2,14 @@ require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
-const bycrypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 
 const connectDB = require("./config/database");
 const User = require("./models/user");
 const {
   validateSignUpData,
   validateEditProfileData,
+  validateLoginData
 } = require("./utils/validation");
 
 
@@ -16,17 +17,34 @@ const app = express();
 
 app.use(express.json());
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "Up",
+    message: "Server is running fine",
+    timeStamp: new Date().toISOString()
+  })
+})
+
 /**
  * Create user
  */
 app.post("/signup", async (req, res) => {
   try {
     validateSignUpData(req);
-    const { password, ...userData } = req.body;
+    const { password, emailId, ...userData } = req.body;
 
-    const passwordHash = await bycrypt.hash(password, 10);
+    const normalizedEmail = emailId.trim().toLowerCase();
 
-    const user = new User({ ...userData, password: passwordHash });
+    const isEmailExists = await User.findOne({ emailId: normalizedEmail });
+    if (isEmailExists) {
+      return res.status(409).json({
+        message: "Email ID already exists"
+      })
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = new User({ ...userData, emailId: normalizedEmail, password: passwordHash });
 
     await user.save();
 
@@ -41,6 +59,11 @@ app.post("/signup", async (req, res) => {
     });
   } catch (error) {
     console.error("Signup error:", error.message);
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Email ID already exists"
+      })
+    }
 
     res.status(400).json({
       message: error.message,
@@ -48,26 +71,28 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-app.post("/login", async (req, res) =>{
+app.post("/login", async (req, res) => {
   try {
-    const {emailId, password} = req.body;
+    validateLoginData(req);
+    const { emailId, password } = req.body;
 
-    if(!emailId || !password) {
-      return  res.status(400).json({
+    if (!emailId || !password) {
+      return res.status(400).json({
         message: "Email and password are required"
       })
     }
-    const user = await User.findOne({emailId});
+    const normalizedEmail = emailId.trim().toLowerCase();
+    const user = await User.findOne({ emailId: normalizedEmail });
 
-    if(!user){
+    if (!user) {
       return res.status(400).json({
         message: "Invalid email or password"
       })
     }
 
-    const isPasswordValid = await bycrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    if(!isPasswordValid) {
+    if (!isPasswordValid) {
       return res.status(400).json({
         message: "Invalid email or password"
       })
@@ -75,19 +100,20 @@ app.post("/login", async (req, res) =>{
 
     res.status(200).json({
       message: "Login successful",
-      data:{
+      data: {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         emailId: user.emailId
       }
     })
-  } catch (error) {
+  }
+  catch (error) {
     console.error("Login error:", error.message);
 
-    res.status(500).json({
-      message: "Something went wrong"
-    })
+    res.status(400).json({
+      message: error.message,
+    });
   }
 })
 
@@ -107,7 +133,8 @@ app.get("/user", async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ emailId });
+    const normalizedEmail = emailId.trim().toLowerCase();
+    const user = await User.findOne({ emailId: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({

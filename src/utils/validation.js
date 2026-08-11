@@ -39,7 +39,7 @@ const validateSignUpData = (req) => {
     throw new Error("password is required");
   }
 
-  if(!validator.isStrongPassword(password)) {
+  if (!validator.isStrongPassword(password)) {
     throw new Error("Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.");
   }
 };
@@ -72,7 +72,51 @@ const validateEditProfileData = (req) => {
   }
 };
 
+
+const validateLoginData = (req) => {
+  const ALLOWED_FIELDS = ["emailId", "password"];
+
+  const requestFields = Object.keys(req.body);
+
+  // Check for an empty request body
+  if (requestFields.length === 0) {
+    throw new Error("Request body cannot be empty");
+  }
+
+  // Find fields that are not allowed
+  const invalidFields = requestFields.filter(
+    (field) => !ALLOWED_FIELDS.includes(field)
+  );
+
+  if (invalidFields.length > 0) {
+    throw new Error(
+      `Invalid fields in request body: ${invalidFields.join(", ")}`
+    );
+  }
+
+  const { emailId, password } = req.body;
+
+  if (!emailId) {
+    throw new Error("emailId is required");
+  }
+
+  if (!password) {
+    throw new Error("password is required");
+  }
+
+  if (!validator.isEmail(emailId)) {
+    throw new Error("Invalid email format");
+  }
+};
+
 module.exports = {
   validateSignUpData,
   validateEditProfileData,
+  validateLoginData,
+};
+
+module.exports = {
+  validateSignUpData,
+  validateEditProfileData,
+  validateLoginData,
 };
