@@ -9,21 +9,24 @@ const User = require("./models/user");
 const {
   validateSignUpData,
   validateEditProfileData,
-  validateLoginData
+  validateLoginData,
 } = require("./utils/validation");
 
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "Up",
     message: "Server is running fine",
-    timeStamp: new Date().toISOString()
-  })
-})
+    timeStamp: new Date().toISOString(),
+  });
+});
 
 /**
  * Create user
@@ -38,13 +41,17 @@ app.post("/signup", async (req, res) => {
     const isEmailExists = await User.findOne({ emailId: normalizedEmail });
     if (isEmailExists) {
       return res.status(409).json({
-        message: "Email ID already exists"
-      })
+        message: "Email ID already exists",
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const user = new User({ ...userData, emailId: normalizedEmail, password: passwordHash });
+    const user = new User({
+      ...userData,
+      emailId: normalizedEmail,
+      password: passwordHash,
+    });
 
     await user.save();
 
@@ -61,8 +68,8 @@ app.post("/signup", async (req, res) => {
     console.error("Signup error:", error.message);
     if (error.code === 11000) {
       return res.status(409).json({
-        message: "Email ID already exists"
-      })
+        message: "Email ID already exists",
+      });
     }
 
     res.status(400).json({
@@ -78,24 +85,30 @@ app.post("/login", async (req, res) => {
 
     if (!emailId || !password) {
       return res.status(400).json({
-        message: "Email and password are required"
-      })
+        message: "Email and password are required",
+      });
     }
     const normalizedEmail = emailId.trim().toLowerCase();
     const user = await User.findOne({ emailId: normalizedEmail });
 
     if (!user) {
+      console.log("user");
       return res.status(400).json({
-        message: "Invalid email or password"
-      })
+        message: "Invalid credentials",
+      });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordValid) {
+    console.log(password === user.password, isPasswordValid);
+    if (isPasswordValid) {
+      const token = jwt.sign({ _id: user._id }, "Shiva@3026");
+      console.log("66666666666",token);
+      res.cookie("token", token);
+    } else {
       return res.status(400).json({
-        message: "Invalid email or password"
-      })
+        message: "Invalid credentials",
+      });
     }
 
     res.status(200).json({
@@ -104,20 +117,17 @@ app.post("/login", async (req, res) => {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
-        emailId: user.emailId
-      }
-    })
-  }
-  catch (error) {
+        emailId: user.emailId,
+      },
+    });
+  } catch (error) {
     console.error("Login error:", error.message);
 
     res.status(400).json({
       message: error.message,
     });
   }
-})
-
-
+});
 
 /**
  * Get user by email query parameter
@@ -150,6 +160,32 @@ app.get("/user", async (req, res) => {
 
     res.status(500).json({
       message: "Something went wrong",
+    });
+  }
+});
+
+app.get("/profile", async (req, res) => {
+  try {
+    const cookies = req.cookies;
+    const { token } = cookies;
+
+    if (!token) {
+     return res.status(401).json({
+      message : "Token not valid"
+     })
+    }
+    const decodeMessage = await jwt.verify(token, "Shiva@3026");
+    console.log("decodeMessage888", decodeMessage);
+    console.log(token);
+    res.status(200).json({
+      message: "token returned",
+      data: decodeMessage
+    });
+  } catch (error) {
+    console.log("JWT ERROR:", error.message);
+       return res.status(401).json({
+      message: "Invalid token",
+      error: error.message,
     });
   }
 });
@@ -224,14 +260,10 @@ app.patch("/user/:id", async (req, res) => {
 
     validateEditProfileData(req);
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const user = await User.findByIdAndUpdate(userId, req.body, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!user) {
       return res.status(404).json({
