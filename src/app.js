@@ -14,6 +14,7 @@ const {
 
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
+const { userAuth } = require("./Middlewares/auth");
 
 const app = express();
 
@@ -99,11 +100,8 @@ app.post("/login", async (req, res) => {
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    console.log(password === user.password, isPasswordValid);
     if (isPasswordValid) {
-      const token = jwt.sign({ _id: user._id }, "Shiva@3026");
-      console.log("66666666666",token);
+      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {expiresIn : process.env.JWT_EXPIRES_IN || "7d"});
       res.cookie("token", token);
     } else {
       return res.status(400).json({
@@ -164,22 +162,11 @@ app.get("/user", async (req, res) => {
   }
 });
 
-app.get("/profile", async (req, res) => {
+app.get("/profile", userAuth, async (req, res) => {
   try {
-    const cookies = req.cookies;
-    const { token } = cookies;
-
-    if (!token) {
-     return res.status(401).json({
-      message : "Token not valid"
-     })
-    }
-    const decodeMessage = await jwt.verify(token, "Shiva@3026");
-    console.log("decodeMessage888", decodeMessage);
-    console.log(token);
     res.status(200).json({
-      message: "token returned",
-      data: decodeMessage
+      message: "Profile fetched successfully",
+      data: req.user
     });
   } catch (error) {
     console.log("JWT ERROR:", error.message);
@@ -316,6 +303,42 @@ app.delete("/user/:id", async (req, res) => {
       message: "Something went wrong",
     });
   }
+});
+
+app.patch("/profile/update", userAuth, async(req,res)=>{
+  try {
+    validateEditProfileData(req);
+    const loggedInUser = req.user;
+    console.log("Logged", loggedInUser)
+    console.log("Logged1", req.body)
+    Object.keys(req.body).forEach((field)=>{
+      loggedInUser[field] = req.body[field];
+    })
+
+    await loggedInUser.save();
+
+    return res.status(200).json({
+      message : "Profile updated successfully",
+      data : loggedInUser
+    })
+
+  } catch (error) {
+    console.error("Update user error:", error.message);
+    res.status(400).json({
+      message: error.message,
+    });
+  }
+})
+
+app.post("/logout", userAuth, async(req, res)=>{
+  res.clearCookie("token", {
+    httpOnly : true,
+    secure : process.env.JWT_SECRET === "Production",
+    sameSite : "strict"
+  })
+  return res.status(200).json({
+    message: "User logged out successfully"
+  })
 });
 
 const PORT = process.env.PORT || 7777;
