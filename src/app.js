@@ -101,7 +101,7 @@ app.post("/login", async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (isPasswordValid) {
-      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {expiresIn : process.env.JWT_EXPIRES_IN || "7d"});
+      const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
       res.cookie("token", token);
     } else {
       return res.status(400).json({
@@ -170,32 +170,13 @@ app.get("/profile", userAuth, async (req, res) => {
     });
   } catch (error) {
     console.log("JWT ERROR:", error.message);
-       return res.status(401).json({
+    return res.status(401).json({
       message: "Invalid token",
       error: error.message,
     });
   }
 });
 
-/**
- * Get all users
- */
-app.get("/feed", async (req, res) => {
-  try {
-    const users = await User.find({});
-
-    res.status(200).json({
-      count: users.length,
-      data: users,
-    });
-  } catch (error) {
-    console.error("Feed error:", error.message);
-
-    res.status(500).json({
-      message: "Something went wrong",
-    });
-  }
-});
 
 /**
  * Get user by MongoDB ID
@@ -305,21 +286,21 @@ app.delete("/user/:id", async (req, res) => {
   }
 });
 
-app.patch("/profile/update", userAuth, async(req,res)=>{
+app.patch("/profile/update", userAuth, async (req, res) => {
   try {
     validateEditProfileData(req);
     const loggedInUser = req.user;
     console.log("Logged", loggedInUser)
     console.log("Logged1", req.body)
-    Object.keys(req.body).forEach((field)=>{
+    Object.keys(req.body).forEach((field) => {
       loggedInUser[field] = req.body[field];
     })
 
     await loggedInUser.save();
 
     return res.status(200).json({
-      message : "Profile updated successfully",
-      data : loggedInUser
+      message: "Profile updated successfully",
+      data: loggedInUser
     })
 
   } catch (error) {
@@ -330,16 +311,70 @@ app.patch("/profile/update", userAuth, async(req,res)=>{
   }
 })
 
-app.post("/logout", userAuth, async(req, res)=>{
+app.post("/logout", userAuth, async (req, res) => {
   res.clearCookie("token", {
-    httpOnly : true,
-    secure : process.env.JWT_SECRET === "Production",
-    sameSite : "strict"
+    httpOnly: true,
+    secure: process.env.JWT_SECRET === "Production",
+    sameSite: "strict"
   })
   return res.status(200).json({
     message: "User logged out successfully"
   })
 });
+
+/**
+ * Get all users
+ */
+app.get("/feed", userAuth, async (req, res)=>{
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const requestedLimit = parseInt(req.query.limit, 10) || 10;
+
+    if(page < 1){
+      return res.status(400).json({
+        message : "Page must be at least 1"
+      })
+    }
+    if(requestedLimit < 1){
+      return res.status(400).json({
+        message : "Limit must be at least 1"
+      })
+    }
+    
+    const limit = Math.min(requestedLimit, 50);
+    const skip = (page-1) * limit;
+
+    const filter = {
+      _id : {$ne : req.user._id}
+    }
+
+    const users = await User.find(filter).select("-password").sort({createdAt : -1}). skip(skip).limit(limit);
+    
+    const totalUsers = await User.countDocuments(filter);
+    const totalPages = Math.ceil(totalUsers/ limit);
+
+
+
+    return res.status(200).json({
+      message : "Feed fetched successfully",
+      pagination:{
+        currentPage : page,
+        limit,
+        totalUsers,
+        totalPages,
+        hasNextPage : page < totalPages,
+        hasPreviousPage : page > 1
+      },
+      data : users
+    })
+  } catch (error) {
+    console.log("Feed error", error);
+
+    return res.status(500).json({
+      message : "Unable fetch feed"
+    })
+  }
+})
 
 const PORT = process.env.PORT || 7777;
 
