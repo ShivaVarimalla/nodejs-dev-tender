@@ -26,6 +26,7 @@ app.use(cookieParser());
 app.use("/", authRouter);
 app.use("/", profieRouter);
 app.use("/", userRouter)
+const errorHandler = require("./Middlewares/errorHandler");
 
 app.get("/health", (req, res) => {
   res.status(200).json({
