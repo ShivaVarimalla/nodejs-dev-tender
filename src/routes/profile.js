@@ -34,30 +34,19 @@ profieRouter.patch("/profile/update", userAuth, catchAsync(async (req, res) => {
 profieRouter.delete(
     "/profile",
     userAuth,
-    async (req, res) => {
-        try {
-            await User.findByIdAndDelete(req.user._id);
+    catchAsync(async (req, res) => {
+        await User.findByIdAndDelete(req.user._id);
 
-            res.clearCookie("token", {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-            });
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+        });
 
-            return res.status(200).json({
-                message: "Profile deleted successfully",
-            });
-        } catch (error) {
-            console.error(
-                "Profile deletion error:",
-                error.message
-            );
-
-            return res.status(500).json({
-                message: "Unable to delete profile",
-            });
-        }
-    }
+        return res.status(200).json({
+            message: "Profile deleted successfully",
+        });
+    })
 );
 
 module.exports = profieRouter;
