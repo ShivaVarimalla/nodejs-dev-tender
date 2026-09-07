@@ -64,9 +64,9 @@ authRouter.post("/login", catchAsync(async (req, res) => {
         });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.validPassword(password)
     if (isPasswordValid) {
-        const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
+        const token = await user.getJWT();
         res.cookie("token", token);
     } else {
         return res.status(400).json({
