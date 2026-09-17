@@ -88,4 +88,76 @@ userRouter.get(
     })
 );
 
+userRouter.get("/users/search", userAuth, catchAsync(async (req, res) => {
+    const { skill } = req.query;
+
+    if (!skill || !skill.trim()) {
+        throw new Error("Skill is required")
+    }
+
+    const normalizedSkill = skill.trim();
+
+    const users = await User.find({ skills: normalizedSkill, _id: { $ne: req.user._id } }).select("firstName lastName age gender photoUrl about skills");
+
+    return res.status(200).json({
+        message: "Users fetched successfully",
+        count: users.length,
+        data: users
+    })
+
+}))
+
+userRouter.get("/users/filter-by-age", userAuth, catchAsync(async (req, res) => {
+    const { minAge, maxAge } = req.query;
+
+    if (minAge === undefined || maxAge === undefined) {
+        throw new AppError("minAge and maxAge are required", 400)
+    }
+    const minimumage = Number(minAge);
+    const maximumAge = Number(maxAge);
+
+    if (Number.isNaN(minimumage) || Number.isNaN(maximumAge)) {
+        throw new AppError("minAge and maxAge must be valid numbers", 400)
+    }
+
+    if (minimumage < 0 || maximumAge < 0) {
+        throw new AppError("minAge and maxAge cannot be negitive")
+    }
+
+    if (minimumage > maximumAge) {
+        return res.status(401).json({
+            message: "minAge cannot be greater than maxAge"
+        })
+    }
+
+    const users = await User.find({ age: { $gte: minimumage, $lte: maximumAge }, _id: { $ne: req.user._id } }).select("firstName lastName age gender photoUrl about skills");
+
+    return res.status(200).json({
+        message: "Users fetched successfully",
+        count: users.length,
+        filters: {
+            "minAge": minimumage,
+            "maxAge": maximumAge
+        },
+        data: users
+    })
+
+}))
+
+userRouter.get("/feed/smart", userAuth, catchAsync(async (req, res) => {
+    const loggedInUserSkills = req.user.skills;
+    if (loggedInUserSkills.length === 0 || !loggedInUserSkills) {
+        throw new AppError("Add skills to your profile to view the smart feed", 400)
+    }
+    const users = await User.find({
+        skills: { $in: loggedInUserSkills }, _id: { $ne: req.user._id }
+    }).select("firstName lastName age gender photoUrl about skills").sort({createdAt : -1});
+
+    return res.status(200).json({
+        message : "Smart feed fetched successfully",
+        count : users.length,
+        data : users
+    })
+}))
+
 module.exports = userRouter;

@@ -3,6 +3,7 @@ const { userAuth } = require("../Middlewares/auth");
 const { validateEditProfileData } = require("../utils/validation")
 const User = require("../models/user");
 const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/appError");
 
 const profieRouter = express.Router();
 
@@ -48,5 +49,40 @@ profieRouter.delete(
         });
     })
 );
+
+profieRouter.patch("/profile/skills", userAuth, catchAsync(async (req, res) => {
+    const { skill } = req.body;
+
+    if (!skill || !skill.trim()) {
+        throw new AppError("Skill is required", 400);
+    }
+    const normalizedSkill = skill.trim();
+
+
+    const skillAlreadyExists = req.user.skills.some(
+        (existingSkill) =>
+            existingSkill.toLowerCase() === normalizedSkill.toLowerCase()
+    );
+
+    if (skillAlreadyExists) {
+        throw new AppError("The skill already exist", 400)
+    }
+
+    const updateUser = await User.findOneAndReplace(req.user._id, {
+        $addToSet: {
+            skills: normalizedSkill
+        }
+    },
+        {
+            new: true,
+            runValidators: true
+        }
+    ).select("-password");
+
+    return res.status(200).json({
+        message: "Skills are updated successfully",
+        data: updateUser
+    })
+}))
 
 module.exports = profieRouter;
